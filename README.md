@@ -48,7 +48,7 @@ Try  to disassemble the specified function and output the instructions. If this 
 
 `-c` - Add a comment of the assembly code next to the instruction
 
-`--help` - Show the parameters of the tool.
+`-h` - Show the parameters of the tool.
 
 
 
