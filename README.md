@@ -25,10 +25,20 @@ Afterwards make the file executable:
 Output all instructions for the function main (default function):
    
     $ riscv-instr <executable|assembly-source>
+    0x00c10093 
+    0x002080b3
 
 Output the instructions for a specified function named `func1`
 
     $ riscv-instr -f func1 <executable|assembly-source>
+    0x00c10093 
+    0x002080b3
+
+Also add a comment line at the end of each instruction
+
+    $ riscv-instr -c <executable|assembly-source>
+    0x00c10093 -- addi ra,sp,12
+    0x002080b3 -- add ra,ra,sp
 
 
 ### Parameters
