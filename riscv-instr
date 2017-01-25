@@ -1,0 +1,117 @@
+#!/bin/bash
+# 
+# riscv-instr - a tool to create 32 bit instructions from assmebly
+# source files or RISC-V ELF (32 bit) executables.
+#
+# Copyright (C) 2017, Jens Nazarenus <me at jens-na dot de>
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program. If not, see <http://www.gnu.org/licenses/>.
+
+# The input file
+FILE=
+
+# The input type
+# 0 = asm, 1 = elf
+TYPE_ELF=0
+
+# The function to get the instructions from
+OPT_FUNC=main
+
+# Comment output
+OPT_COMMENT=0
+
+# The riscv binaries
+GDB=riscv32-unknown-elf-gdb
+GCC=riscv32-unknown-elf-gcc
+
+TEMP_FILE=
+
+function finish {
+    if [ ! -z $TEMP_FILE ]; then
+        rm $TEMP_FILE
+    fi
+}
+trap finish EXIT
+
+usage() {
+    echo "Usage: ${0##*/} [OPTIONS] FILE
+    -f <func>       Output the instructions for a specified function.
+                    If -f is not passed the instructions of the function
+                    main() is returned.
+
+    -c              Add a comment of the assembly code next to the
+                    instruction
+
+    -h              Show the parameters of the tool"
+}
+
+while getopts "f:hbc" opt; do
+    case $opt in
+        h)
+            usage
+            exit 0
+            ;;
+        c)
+            OPT_COMMENT=1
+            ;;
+        f)
+            OPT_FUNC=$OPTARG
+            ;;
+        *)
+            echo "Unknown parameter"
+            usage
+            exit 1
+    esac
+done
+shift $((OPTIND-1))
+
+if [ "$#" -ne 1 ]; then
+    echo "No input file."
+    usage
+    exit 1
+fi
+
+FILE="$1"
+
+
+# Determine if input is ELF or assembly source
+if [ `file -b --mime-type $FILE` == "text/x-asm" ]; then
+   TYPE_ELF=0
+elif [ `file -b --mime-type $FILE` == "application/x-executable" ]; then
+   TYPE_ELF=1 
+else
+    echo "File type unknown or file not found"
+    exit 1
+fi
+
+# Compile if necessary
+if [ $TYPE_ELF -eq 0 ]; then
+    TEMP_FILE=$(mktemp)
+    $GCC $FILE -o $TEMP_FILE
+    FILE=$TEMP_FILE
+fi
+
+# Disassemble and parse instruction
+instr=`$GDB -batch -ex "file $FILE" -ex "disassemble /r $OPT_FUNC" | sed '1d;$d'`
+for dis in "$instr"; do
+    comment=
+    instr="`echo "$dis" | cut -d$'\t' -f 2,3,4 \
+            | awk '{printf("0x%s%s%s%s -- %s %s\n", $4,$3,$2,$1,$5,$6)}'`"
+
+    if [ $OPT_COMMENT -eq 1 ]; then
+        echo "$instr"
+    else
+        echo "$instr" | sed 's/--.*//g'
+    fi
+done
